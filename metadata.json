@@ -1,0 +1,5 @@
+{
+  "name": "Enterprise Search & RAG Architecture",
+  "description": "Interactive visualization of a modern Search & RAG pipeline featuring Hybrid Retrieval (BM25+Vectors), Redis Caching, Apache Flink, and Kafka.",
+  "requestFramePermissions": []
+}
