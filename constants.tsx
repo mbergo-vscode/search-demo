@@ -158,19 +158,33 @@ Data structure mapping **Terms** to **Postings Lists** (lists of Document IDs).
 *   *Term*: "Search" -> *Docs*: [1, 5, 88, 92]
 *   Allows O(1) or O(log N) lookups for exact keywords.
 
-### Distributed Indexing
-*   **Sharding**: Splitting the index into N pieces (Shards) distributed across nodes. allows horizontal scaling of volume.
-*   **Replication**: Copying shards to M nodes for High Availability and throughput (scaling reads).
-*   **Segments**: Lucene indices are composed of immutable segments. When a doc is updated, it's marked "deleted" in a bitmap and a new version is written to a new segment. Background **Merging** compacts these segments.
+### Search Clusters & Scalability
+*   **Sharding (Write Scaling)**: 
+    *   Splitting the index into N pieces (Shards).
+    *   **Hash-based**: \`hash(doc_id) % num_shards\`. Ensures even distribution but makes changing shard count hard.
+    *   **Time-based**: Useful for logs, new index per day.
+*   **Replication (Read Scaling)**: 
+    *   Copying shards to M nodes.
+    *   **Primary-Replica**: Writes go to Primary, then sync to Replicas. Reads load-balanced across all.
+    *   Increases **Availability**: If a node dies, a replica is promoted.
+*   **Node Roles**:
+    *   **Master**: Cluster state management (lightweight).
+    *   **Data**: Holds shards, performs CRUD/Search (CPU/IO heavy).
+    *   **Ingest/Coordinator**: Pre-processing and scatter-gather routing.
+
+### Segment Architecture & Merging
+*   **Immutability**: Lucene segments are write-once.
+*   **Updates**: Actually a Delete + Insert. "Deleted" docs remain in \`.del\` files until merge.
+*   **Merging**: Background process merging small segments into large ones (LSM Tree style). Expensive (CPU/IO) but improves search speed.
 
 ### Scoring: BM25 (Best Matching 25)
-An evolution of TF-IDF (Term Frequency - Inverse Document Frequency).
-*   **TF**: How often term appears in doc. (Saturates unlike raw TF).
-*   **IDF**: How rare is the term in the corpus? (Penalizes common words).
-*   **Field Length Norm**: Penalizes long documents (a match in a short title is worth more than in a long body).`,
-    algorithms: ['BM25', 'TF-IDF', 'Inverted Index', 'Segment Merging (LSM)'],
+An evolution of TF-IDF.
+*   **TF**: How often term appears in doc (Saturates).
+*   **IDF**: How rare is the term (Penalizes common words).
+*   **Norms**: Penalizes long fields.`,
+    algorithms: ['BM25', 'TF-IDF', 'Inverted Index', 'Segment Merging (LSM)', 'Consistent Hashing'],
     techStack: ['Apache Solr', 'Elasticsearch', 'Apache Lucene'],
-    kpis: ['Indexing Rate (docs/sec)', 'Segment Merge Time'],
+    kpis: ['Indexing Rate (docs/sec)', 'Segment Merge Time', 'Replication Lag'],
     crossDomainImpact: {
         inputs: [{ source: "Flink", benefit: "Tokenized Documents" }],
         outputs: [{ target: "Hybrid Retriever", improvement: "High Precision Candidates" }]
