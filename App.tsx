@@ -223,11 +223,29 @@ const App: React.FC = () => {
               log('Failed to generate video.');
           }
       } catch(e: any) {
-          log('Error generating video. Check API Key.');
-          console.error(e);
-          if (e.toString().includes("Requested entity was not found") && aistudio) {
-             log('Key invalid. Prompting re-selection...');
-             await aistudio.openSelectKey();
+          console.error("Veo Error:", e);
+          const errStr = JSON.stringify(e) + (e.message || "") + (e.toString() || "");
+
+          if (aistudio) {
+            // Check for 403 Permission Denied
+            if (errStr.includes("403") || errStr.includes("PERMISSION_DENIED")) {
+                log('Error: Permission Denied. Please select a PAID API Key.');
+                await aistudio.openSelectKey();
+            } 
+            // Check for 429 Resource Exhausted (Quota)
+            else if (errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+                log('Error: Quota Exceeded. Please check billing/quota.');
+                await aistudio.openSelectKey();
+            }
+            // Check for Not Found (often invalid key context)
+            else if (errStr.includes("Requested entity was not found")) {
+                log('Key context invalid. Re-selecting key...');
+                await aistudio.openSelectKey();
+            } else {
+                log('Error generating video. Check console.');
+            }
+          } else {
+              log(`Error generating video: ${e.message || "Unknown"}`);
           }
       } finally {
           setIsGeneratingRerankVideo(false);
@@ -294,7 +312,7 @@ const App: React.FC = () => {
                 {!isSimulating ? (
                     <button 
                         onClick={startSimulation}
-                        className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition shadow-[0_4px_14px_rgba(37,99,235,0.4)]"
+                        className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-bold rounded-lg text-white transition shadow-[0_4px_14px_rgba(37,99,235,0.4)]"
                     >
                         <Play className="w-4 h-4 fill-current" />
                         Run Pipeline

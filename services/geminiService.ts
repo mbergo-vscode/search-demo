@@ -89,8 +89,14 @@ export const generateVeoVideo = async (
 
         // Polling loop
         while (!operation.done) {
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5s
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10s as recommended
             operation = await ai.operations.getVideosOperation({operation: operation});
+            
+            // Check for explicit error in operation state if SDK returns it there
+            if ((operation as any).error) {
+                const opError = (operation as any).error;
+                throw new Error(`Veo Operation Failed: ${opError.message || JSON.stringify(opError)}`);
+            }
         }
 
         const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
@@ -98,6 +104,11 @@ export const generateVeoVideo = async (
 
         // Fetch the actual bytes using the key
         const videoResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
+        
+        if (!videoResponse.ok) {
+             throw new Error(`Failed to download video: ${videoResponse.statusText}`);
+        }
+
         const videoBlob = await videoResponse.blob();
         return URL.createObjectURL(videoBlob);
 
