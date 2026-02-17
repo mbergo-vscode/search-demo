@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PipelineVisualizer from './components/PipelineVisualizer';
 import DetailPanel from './components/DetailPanel';
 import DataInspector from './components/DataInspector';
 import { generateRAGResponse, generateVeoVideo } from './services/geminiService';
 import { NodeType, SimulationStepDef } from './types';
-import { Play, RotateCcw, ChevronRight, Terminal, Search, Server, Activity, Info } from 'lucide-react';
+import { Play, RotateCcw, ChevronRight, Terminal, Search, Server, Activity, Info, GripVertical } from 'lucide-react';
 
 // --- Enterprise Search Simulation Definitions ---
 
@@ -144,6 +144,34 @@ const App: React.FC = () => {
   const [rerankVideoUrl, setRerankVideoUrl] = useState<string | null>(null);
   const [isGeneratingRerankVideo, setIsGeneratingRerankVideo] = useState(false);
 
+  // Resize State
+  const [sidebarWidth, setSidebarWidth] = useState(480);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = useCallback(() => setIsResizing(true), []);
+  const stopResizing = useCallback(() => setIsResizing(false), []);
+
+  const resize = useCallback((mouseMoveEvent: MouseEvent) => {
+      if (isResizing) {
+          const newWidth = window.innerWidth - mouseMoveEvent.clientX;
+          // Clamp width between 300px and 800px
+          if (newWidth > 300 && newWidth < 900) {
+              setSidebarWidth(newWidth);
+          }
+      }
+  }, [isResizing]);
+
+  useEffect(() => {
+      if (isResizing) {
+          window.addEventListener('mousemove', resize);
+          window.addEventListener('mouseup', stopResizing);
+      }
+      return () => {
+          window.removeEventListener('mousemove', resize);
+          window.removeEventListener('mouseup', stopResizing);
+      };
+  }, [isResizing, resize, stopResizing]);
+
   const log = (msg: string) => {
     setConsoleLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 8)]); 
   };
@@ -253,7 +281,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col font-sans text-slate-200 selection:bg-blue-500 selection:text-white">
+    <div className={`h-screen flex flex-col font-sans text-slate-200 selection:bg-blue-500 selection:text-white ${isResizing ? 'cursor-col-resize select-none' : ''}`}>
       {/* Header */}
       <header className="border-b border-tech-800 bg-tech-900 px-6 py-4 flex items-center justify-between shrink-0 shadow-lg relative z-20">
         <div className="flex items-center gap-4">
@@ -284,11 +312,11 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content Grid */}
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-[#0a0a0c]">
+      {/* Main Content (Flex Layout for Resizable Sidebar) */}
+      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-[#0a0a0c]">
         
-        {/* Left: Visualization & Controls */}
-        <div className="lg:col-span-8 p-6 flex flex-col gap-6 overflow-y-auto">
+        {/* Left: Visualization & Controls (Flexible Width) */}
+        <div className="flex-1 min-w-0 p-6 flex flex-col gap-6 overflow-y-auto">
           
           {/* Controls Bar */}
           <div className="bg-tech-800/60 backdrop-blur-md border border-tech-700 rounded-2xl p-4 flex items-center justify-between shadow-xl">
@@ -392,8 +420,19 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Info Panel */}
-        <div className="lg:col-span-4 h-full min-h-0 border-l border-tech-700 bg-tech-800/30 backdrop-blur-sm relative z-10 flex flex-col overflow-hidden">
+        {/* Resizer Handle */}
+        <div 
+           className="hidden lg:flex w-2 bg-tech-900 border-l border-r border-tech-800 hover:bg-blue-600/50 hover:border-blue-500/50 cursor-col-resize items-center justify-center transition-colors z-30 flex-none"
+           onMouseDown={startResizing}
+        >
+            <GripVertical className="w-3 h-3 text-slate-600" />
+        </div>
+
+        {/* Right: Info Panel (Dynamic Width) */}
+        <div 
+          className="flex-none h-full min-h-0 bg-tech-800/30 backdrop-blur-sm relative z-10 flex flex-col overflow-hidden border-t lg:border-t-0 border-tech-700"
+          style={{ width: window.innerWidth >= 1024 ? sidebarWidth : '100%' }}
+        >
           <DetailPanel nodeId={activeNode} onClose={() => setActiveNode(null)} />
         </div>
 
